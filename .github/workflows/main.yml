@@ -1,0 +1,75 @@
+
+name: Build J2ME Loader MultiSession APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # Java 17 is required by Android SDK command-line tools
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # v4 avoids requesting the removed SDK package "tools"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+
+      - name: Install Android SDK dependencies
+        run: |
+          set -e
+          sdkmanager --licenses
+          sdkmanager --install \
+            "platforms;android-33" \
+            "build-tools;33.0.2" \
+            "ndk;22.1.7171670"
+
+      # Use Java 11 for the project build
+      - name: Set up Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: gradle
+
+      - name: Build openDebug APK
+        run: |
+          chmod +x gradlew
+          java -version
+          ./gradlew --no-daemon --stacktrace :app:assembleOpenDebug
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: J2ME-Loader-MultiSession-debug
+          path: app/build/outputs/apk/open/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            app/build/reports/**
+            build/reports/**
+          if-no-files-found: ignore
