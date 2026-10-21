@@ -106,7 +106,7 @@ public final class MultiGameRuntimePreparer {
             }
             FileUtils.deleteDirectory(backup);
             return new RuntimePackage(zeroBasedSlot, target, descriptor);
-        } catch (ConverterException | IOException e) {
+        } catch (IOException e) {
             FileUtils.deleteDirectory(temp);
             if (!target.exists() && backup.exists()) {
                 //noinspection ResultOfMethodCallIgnored
