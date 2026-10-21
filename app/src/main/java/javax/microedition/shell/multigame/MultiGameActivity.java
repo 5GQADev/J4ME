@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -84,62 +85,113 @@ public final class MultiGameActivity extends AppCompatActivity {
             Toast.makeText(this, "Selected for slot " + (slot + 1) + ". Tap Prepare JAR, then Convert for runtime.", Toast.LENGTH_LONG).show();
         });
 
+        final int surface = android.graphics.Color.rgb(18, 24, 38);
+        final int card = android.graphics.Color.rgb(30, 41, 59);
+        final int accent = android.graphics.Color.rgb(56, 189, 248);
+        final int muted = android.graphics.Color.rgb(148, 163, 184);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(6), dp(6), dp(6), dp(6));
-        TextView notice = new TextView(this);
-        notice.setText("Multi-game · Prepare and convert a JAR, then launch it directly in its slot. Tap a slot header to maximize or restore. Thumbnail rendering is limited to 4 FPS; verify game-specific behavior on device.");
-        notice.setPadding(dp(8), dp(4), dp(8), dp(8));
-        root.addView(notice, new LinearLayout.LayoutParams(
+        root.setPadding(dp(12), dp(8), dp(12), dp(8));
+        root.setBackgroundColor(surface);
+
+        TextView title = new TextView(this);
+        title.setText("Multi-game");
+        title.setTextSize(24);
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        title.setTextColor(android.graphics.Color.WHITE);
+        title.setPadding(dp(4), dp(8), dp(4), dp(2));
+        root.addView(title, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        // Keep the 2x2 preview visible while the four sets of management controls scroll below it.
+        TextView subtitle = new TextView(this);
+        subtitle.setText("Chạy tối đa 4 game · Preview 2×2");
+        subtitle.setTextSize(13);
+        subtitle.setTextColor(muted);
+        subtitle.setPadding(dp(4), 0, dp(4), dp(10));
+        root.addView(subtitle, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout tabs = new LinearLayout(this);
+        tabs.setOrientation(LinearLayout.HORIZONTAL);
+        tabs.setPadding(dp(4), dp(4), dp(4), dp(8));
+        Button previewTab = new Button(this);
+        previewTab.setAllCaps(false);
+        previewTab.setText("Preview");
+        Button manageTab = new Button(this);
+        manageTab.setAllCaps(false);
+        manageTab.setText("Quản lý game");
+        tabs.addView(previewTab, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        tabs.addView(manageTab, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        root.addView(tabs, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout previewPage = new LinearLayout(this);
+        previewPage.setOrientation(LinearLayout.VERTICAL);
+        TextView previewHint = new TextView(this);
+        previewHint.setText("Chạm tiêu đề một ô để phóng to hoặc khôi phục lưới.");
+        previewHint.setTextSize(12);
+        previewHint.setTextColor(muted);
+        previewHint.setPadding(dp(4), dp(2), dp(4), dp(8));
+        previewPage.addView(previewHint, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         grid = new MultiGameGridView(this);
-        root.addView(grid, new LinearLayout.LayoutParams(
+        previewPage.addView(grid, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         ScrollView controlsScroll = new ScrollView(this);
         controlsScroll.setFillViewport(false);
         controlsScroll.setVerticalScrollBarEnabled(true);
+        controlsScroll.setBackgroundColor(surface);
         LinearLayout controls = new LinearLayout(this);
         controls.setOrientation(LinearLayout.VERTICAL);
+        controls.setPadding(dp(2), dp(2), dp(2), dp(16));
         controlsScroll.addView(controls, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         for (int i = 0; i < 4; i++) {
             final int slot = i;
+            TextView section = new TextView(this);
+            section.setText("GAME SLOT " + (i + 1));
+            section.setTextSize(12);
+            section.setTypeface(null, android.graphics.Typeface.BOLD);
+            section.setTextColor(accent);
+            section.setPadding(dp(8), dp(12), dp(8), dp(2));
+            controls.addView(section, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
             selectButtons[i] = new Button(this);
             selectButtons[i].setAllCaps(false);
-            selectButtons[i].setText("Choose game · Slot " + (i + 1));
+            selectButtons[i].setText("＋  Chọn file JAR · Slot " + (i + 1));
             selectButtons[i].setOnClickListener(v -> {
                 pendingSlot = slot;
                 picker.launch(new String[]{"application/java-archive", "application/octet-stream", "*/*"});
             });
-            controls.addView(selectButtons[i], new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            controls.addView(selectButtons[i], controlButtonParams());
+
             prepareButtons[i] = new Button(this);
             prepareButtons[i].setAllCaps(false);
-            prepareButtons[i].setText("Prepare JAR · Slot " + (i + 1));
+            prepareButtons[i].setText("1 · Prepare JAR");
             prepareButtons[i].setOnClickListener(v -> prepareSlot(slot));
-            controls.addView(prepareButtons[i], new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            controls.addView(prepareButtons[i], controlButtonParams());
+
             convertButtons[i] = new Button(this);
             convertButtons[i].setAllCaps(false);
-            convertButtons[i].setText("Convert for runtime · Slot " + (i + 1));
+            convertButtons[i].setText("2 · Convert runtime");
             convertButtons[i].setEnabled(false);
             convertButtons[i].setOnClickListener(v -> convertSlot(slot));
-            controls.addView(convertButtons[i], new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            controls.addView(convertButtons[i], controlButtonParams());
+
             launchButtons[i] = new Button(this);
             launchButtons[i].setAllCaps(false);
-            launchButtons[i].setText("Launch in grid · Slot " + (i + 1));
+            launchButtons[i].setText("▶  Launch in grid");
             launchButtons[i].setEnabled(false);
             launchButtons[i].setOnClickListener(v -> {
                 MultiGameGridView.SlotHost host = grid.getSlot(slot);
                 if (host.hasOwner() || MultiGameSessionLauncher.hasSessionOrLaunching(host)) {
                     host.stopSession();
                     if (!host.hasOwner()) {
-                        launchButtons[slot].setText("Launch in grid · Slot " + (slot + 1));
+                        launchButtons[slot].setText("▶  Launch in grid");
                         launchButtons[slot].setEnabled(true);
                         slotStatus[slot].setText("Launch cancellation requested");
                     }
@@ -147,18 +199,52 @@ public final class MultiGameActivity extends AppCompatActivity {
                     launchRuntimeInGrid(slot);
                 }
             });
-            controls.addView(launchButtons[i], new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            controls.addView(launchButtons[i], controlButtonParams());
+
             slotStatus[i] = new TextView(this);
-            slotStatus[i].setText("Not prepared");
-            slotStatus[i].setPadding(dp(8), dp(1), dp(8), dp(4));
+            slotStatus[i].setText("Chưa chuẩn bị");
+            slotStatus[i].setTextSize(12);
+            slotStatus[i].setTextColor(muted);
+            slotStatus[i].setPadding(dp(8), dp(3), dp(8), dp(8));
             controls.addView(slotStatus[i], new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            View divider = new View(this);
+            divider.setBackgroundColor(card);
+            controls.addView(divider, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(1)));
         }
+
+        root.addView(previewPage, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         root.addView(controlsScroll, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(330)));
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        controlsScroll.setVisibility(View.GONE);
+        previewTab.setOnClickListener(v -> {
+            previewPage.setVisibility(View.VISIBLE);
+            controlsScroll.setVisibility(View.GONE);
+            previewTab.setTextColor(android.graphics.Color.WHITE);
+            previewTab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(accent));
+            manageTab.setTextColor(muted);
+            manageTab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(card));
+        });
+        manageTab.setOnClickListener(v -> {
+            previewPage.setVisibility(View.GONE);
+            controlsScroll.setVisibility(View.VISIBLE);
+            manageTab.setTextColor(android.graphics.Color.WHITE);
+            manageTab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(accent));
+            previewTab.setTextColor(muted);
+            previewTab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(card));
+        });
+        previewTab.performClick();
         setContentView(root);
         restoreSelections();
+    }
+
+    private LinearLayout.LayoutParams controlButtonParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.setMargins(dp(2), dp(3), dp(2), dp(3));
+        return params;
     }
 
     private void restoreSelections() {
