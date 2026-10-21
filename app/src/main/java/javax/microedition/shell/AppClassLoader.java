@@ -52,8 +52,8 @@ public class AppClassLoader extends DexClassLoader {
 		if (appDir == null)
 			throw new NullPointerException("App path is null");
 		oldResDir = new File(appDir, Config.MIDLET_RES_DIR);
-		File parent = appDir.getParentFile();
-		File root = parent == null ? null : parent.getParentFile();
+		File parentDir = appDir.getParentFile();
+        File root = parentDir == null ? null : parentDir.getParentFile();
 		if (root == null) throw new IllegalArgumentException("MIDlet app path has no data root: " + appDir);
 		dataDir = root.getPath() + Config.MIDLET_DATA_DIR + appDir.getName();
 		instance = this;
