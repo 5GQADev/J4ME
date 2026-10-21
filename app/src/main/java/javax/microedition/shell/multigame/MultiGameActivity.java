@@ -11,6 +11,7 @@ import android.view.KeyEvent;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -92,6 +93,19 @@ public final class MultiGameActivity extends AppCompatActivity {
         root.addView(notice, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        // Keep the 2x2 preview visible while the four sets of management controls scroll below it.
+        grid = new MultiGameGridView(this);
+        root.addView(grid, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        ScrollView controlsScroll = new ScrollView(this);
+        controlsScroll.setFillViewport(false);
+        controlsScroll.setVerticalScrollBarEnabled(true);
+        LinearLayout controls = new LinearLayout(this);
+        controls.setOrientation(LinearLayout.VERTICAL);
+        controlsScroll.addView(controls, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
         for (int i = 0; i < 4; i++) {
             final int slot = i;
             selectButtons[i] = new Button(this);
@@ -101,20 +115,20 @@ public final class MultiGameActivity extends AppCompatActivity {
                 pendingSlot = slot;
                 picker.launch(new String[]{"application/java-archive", "application/octet-stream", "*/*"});
             });
-            root.addView(selectButtons[i], new LinearLayout.LayoutParams(
+            controls.addView(selectButtons[i], new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             prepareButtons[i] = new Button(this);
             prepareButtons[i].setAllCaps(false);
             prepareButtons[i].setText("Prepare JAR · Slot " + (i + 1));
             prepareButtons[i].setOnClickListener(v -> prepareSlot(slot));
-            root.addView(prepareButtons[i], new LinearLayout.LayoutParams(
+            controls.addView(prepareButtons[i], new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             convertButtons[i] = new Button(this);
             convertButtons[i].setAllCaps(false);
             convertButtons[i].setText("Convert for runtime · Slot " + (i + 1));
             convertButtons[i].setEnabled(false);
             convertButtons[i].setOnClickListener(v -> convertSlot(slot));
-            root.addView(convertButtons[i], new LinearLayout.LayoutParams(
+            controls.addView(convertButtons[i], new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             launchButtons[i] = new Button(this);
             launchButtons[i].setAllCaps(false);
@@ -133,17 +147,16 @@ public final class MultiGameActivity extends AppCompatActivity {
                     launchRuntimeInGrid(slot);
                 }
             });
-            root.addView(launchButtons[i], new LinearLayout.LayoutParams(
+            controls.addView(launchButtons[i], new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             slotStatus[i] = new TextView(this);
             slotStatus[i].setText("Not prepared");
             slotStatus[i].setPadding(dp(8), dp(1), dp(8), dp(4));
-            root.addView(slotStatus[i], new LinearLayout.LayoutParams(
+            controls.addView(slotStatus[i], new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         }
-        grid = new MultiGameGridView(this);
-        root.addView(grid, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        root.addView(controlsScroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(330)));
         setContentView(root);
         restoreSelections();
     }
