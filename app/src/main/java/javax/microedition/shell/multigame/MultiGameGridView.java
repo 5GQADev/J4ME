@@ -87,6 +87,10 @@ public final class MultiGameGridView extends FrameLayout {
         return slots[slot];
     }
 
+    public void setSlotColors(int background, int foreground, boolean dark) {
+        for (SlotHost slot : slots) slot.setSlotColors(background, foreground, dark);
+    }
+
     public int getMaximizedSlot() {
         return maximizedSlot;
     }
@@ -133,6 +137,9 @@ public final class MultiGameGridView extends FrameLayout {
         private final TextView header;
         private LinearLayout controlBar;
         private View[] slotControls;
+        private TextView statusView;
+        private int slotBackground = Color.rgb(248, 250, 252);
+        private int slotForeground = Color.rgb(15, 23, 42);
         private MIDlet owner;
         private Displayable current;
         private boolean isMaximized;
@@ -197,7 +204,7 @@ public final class MultiGameGridView extends FrameLayout {
         }
 
         /** Add the compact per-slot actions above the bottom edge of the cell. */
-        public void addControlBar(View chooseJar, View configure, View launch, View status) {
+        public void addControlBar(View chooseJar, View configure, View launch, View maximize, View status) {
             if (controlBar != null) removeView(controlBar);
             controlBar = new LinearLayout(getContext());
             controlBar.setOrientation(LinearLayout.VERTICAL);
@@ -206,7 +213,7 @@ public final class MultiGameGridView extends FrameLayout {
             LinearLayout actions = new LinearLayout(getContext());
             actions.setOrientation(LinearLayout.HORIZONTAL);
             actions.setGravity(Gravity.CENTER);
-            View[] buttons = {launch, configure, chooseJar};
+            View[] buttons = {launch, configure, chooseJar, maximize};
             for (View button : buttons) {
                 LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(0, dp(34), 1f);
                 bp.setMargins(1, 0, 1, 0);
@@ -215,6 +222,7 @@ public final class MultiGameGridView extends FrameLayout {
             controlBar.addView(actions, new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
             if (status instanceof TextView) {
                 TextView text = (TextView) status;
+                statusView = text;
                 text.setMaxLines(1);
                 text.setEllipsize(android.text.TextUtils.TruncateAt.END);
                 text.setPadding(3, 1, 3, 1);
@@ -227,6 +235,16 @@ public final class MultiGameGridView extends FrameLayout {
 
         public void setControlsEnabled(boolean enabled) {
             if (slotControls != null) for (View control : slotControls) control.setEnabled(enabled);
+        }
+
+        public void setSlotColors(int background, int foreground, boolean dark) {
+            slotBackground = background;
+            slotForeground = foreground;
+            setBackgroundColor(background);
+            header.setTextColor(foreground);
+            header.setBackgroundColor(dark ? 0xE622252B : 0xE6FFFFFF);
+            if (controlBar != null) controlBar.setBackgroundColor(dark ? 0xF222252B : 0xF2FFFFFF);
+            updateHeader();
         }
 
         private int dp(int value) {
@@ -306,9 +324,14 @@ public final class MultiGameGridView extends FrameLayout {
                     : (selectedGameName == null || selectedGameName.trim().isEmpty()
                     ? "Choose game · Slot " + (slot + 1) : selectedGameName);
             boolean focused = owner != null && MultiGameInputRouter.isFocused(owner.getClass().getClassLoader());
-            header.setText((focused ? "● INPUT  ·  " : "") + title
-                    + (isMaximized ? "  ·  Back to grid" : "  ·  Tap to expand"));
-            header.setBackgroundColor(focused ? 0xDD176B3A : 0x99000000);
+            header.setText(title);
+            header.setTextColor(slotForeground);
+            header.setBackgroundColor(focused ? 0xDD176B3A : (slotBackground == Color.rgb(248, 250, 252) ? 0xE6FFFFFF : 0xE622252B));
+            if (statusView != null) {
+                statusView.setText(focused ? "● ĐANG NHẬN INPUT" :
+                        (owner == null ? (selectedGameName == null ? "Chưa có game" : "Đã chọn game") : "Game đang chạy"));
+                statusView.setTextColor(focused ? Color.rgb(34, 197, 94) : slotForeground);
+            }
         }
 
         @Override
