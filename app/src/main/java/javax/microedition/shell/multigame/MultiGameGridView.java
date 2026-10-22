@@ -153,19 +153,10 @@ public final class MultiGameGridView extends FrameLayout {
             addView(content, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
             overlay = new OverlayView(context, null);
             addView(overlay, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
-            header = new TextView(context);
-            header.setTextColor(Color.rgb(15, 23, 42));
-            header.setTextSize(12);
-            header.setGravity(Gravity.CENTER_VERTICAL);
-            header.setPadding(8, 4, 8, 4);
-            header.setBackgroundColor(0xE6FFFFFF);
-            LayoutParams hp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.TOP);
-            addView(header, hp);
+            // No top status/title bar: the selected JAR/status is shown beneath the controls.
+            header = new TextView(context); // retained as an internal, non-visible label
+            header.setVisibility(GONE);
             updateHeader();
-            setOnClickListener(v -> toggleMaximized());
-            // The child Canvas/view normally consumes touch events, so put the expand action
-            // on the always-visible header as well as the host container.
-            header.setOnClickListener(v -> toggleMaximized());
         }
 
         private void toggleMaximized() {
@@ -230,6 +221,11 @@ public final class MultiGameGridView extends FrameLayout {
             }
             LayoutParams cp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
             addView(controlBar, cp);
+            // Keep the control strip outside the MIDP canvas viewport. Otherwise it covers
+            // Canvas soft-key/navigation buttons and text-field controls rendered at the bottom.
+            LayoutParams contentParams = (LayoutParams) content.getLayoutParams();
+            contentParams.bottomMargin = dp(52);
+            content.setLayoutParams(contentParams);
             slotControls = buttons;
         }
 
@@ -322,22 +318,36 @@ public final class MultiGameGridView extends FrameLayout {
         private void updateHeader() {
             String title = owner != null ? owner.getClass().getSimpleName()
                     : (selectedGameName == null || selectedGameName.trim().isEmpty()
-                    ? "Choose game · Slot " + (slot + 1) : selectedGameName);
+                    ? "Chưa chọn JAR · Ô " + (slot + 1) : selectedGameName);
             boolean focused = owner != null && MultiGameInputRouter.isFocused(owner.getClass().getClassLoader());
             header.setText(title);
-            header.setTextColor(slotForeground);
-            header.setBackgroundColor(focused ? 0xDD176B3A : (slotBackground == Color.rgb(248, 250, 252) ? 0xE6FFFFFF : 0xE622252B));
             if (statusView != null) {
-                statusView.setText(focused ? "● ĐANG NHẬN INPUT" :
-                        (owner == null ? (selectedGameName == null ? "Chưa có game" : "Đã chọn game") : "Game đang chạy"));
-                statusView.setTextColor(focused ? Color.rgb(34, 197, 94) : slotForeground);
+                if (focused) {
+                    statusView.setText("● ĐANG NHẬN INPUT");
+                    statusView.setTextColor(Color.rgb(34, 197, 94));
+                } else if (owner != null) {
+                    statusView.setText("Game đang chạy");
+                    statusView.setTextColor(slotForeground);
+                } else {
+                    statusView.setText(title);
+                    statusView.setTextColor(slotForeground);
+                }
             }
         }
 
         @Override
         public boolean dispatchTouchEvent(android.view.MotionEvent event) {
-            if (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN && owner != null) {
+            if (owner != null && event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
                 MultiGameInputRouter.focus(owner.getClass().getClassLoader());
+            }
+            // Empty slots have no game view to receive the gesture, so tapping anywhere in
+            // the slot toggles maximize/restore. Running games retain all canvas touch input.
+            if (owner == null && event.getActionMasked() == android.view.MotionEvent.ACTION_UP) {
+                float x = event.getX(), y = event.getY();
+                if (controlBar == null || y < controlBar.getTop()) {
+                    toggleMaximized();
+                    return true;
+                }
             }
             return super.dispatchTouchEvent(event);
         }
