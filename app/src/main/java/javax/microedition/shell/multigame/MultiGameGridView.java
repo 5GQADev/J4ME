@@ -159,10 +159,6 @@ public final class MultiGameGridView extends FrameLayout {
             updateHeader();
         }
 
-        private void toggleMaximized() {
-            if (maximizedSlot == slot) restoreGrid(); else maximize(slot);
-        }
-
         private void bind(MIDlet midlet) {
             if (owner != null && owner != midlet) {
                 Display.unregisterSessionHost(owner, this);
@@ -339,15 +335,6 @@ public final class MultiGameGridView extends FrameLayout {
         public boolean dispatchTouchEvent(android.view.MotionEvent event) {
             if (owner != null && event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
                 MultiGameInputRouter.focus(owner.getClass().getClassLoader());
-            }
-            // Empty slots have no game view to receive the gesture, so tapping anywhere in
-            // the slot toggles maximize/restore. Running games retain all canvas touch input.
-            if (owner == null && event.getActionMasked() == android.view.MotionEvent.ACTION_UP) {
-                float x = event.getX(), y = event.getY();
-                if (controlBar == null || y < controlBar.getTop()) {
-                    toggleMaximized();
-                    return true;
-                }
             }
             return super.dispatchTouchEvent(event);
         }
