@@ -65,38 +65,31 @@ public class MainActivity extends BaseActivity {
 	private SharedPreferences preferences;
 	private AppListModel appListModel;
 
+	private boolean multiGameLaunched;
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		setContentView(R.layout.activity_main);
-		Button multiGameButton = findViewById(R.id.multi_game_button);
-		multiGameButton.setOnClickListener(v ->
-				startActivity(new Intent(MainActivity.this, MultiGameActivity.class)));
+		preferences = PreferenceManager.getDefaultSharedPreferences(this);
+		setVolumeControlStream(AudioManager.STREAM_MUSIC);
 		if (FileUtils.isExternalStorageLegacy()) {
 			permissionsLauncher.launch(STORAGE_PERMISSIONS);
-		}
-		appListModel = new ViewModelProvider(this).get(AppListModel.class);
-		if (savedInstanceState == null) {
-			Intent intent = getIntent();
-			Uri uri = null;
-			if ((intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0) {
-				uri = intent.getData();
+		} else {
+			boolean warningShown = preferences.getBoolean(PREF_STORAGE_WARNING_SHOWN, false);
+			if (!warningShown) {
+				showScopedStorageDialog();
+				preferences.edit().putBoolean(PREF_STORAGE_WARNING_SHOWN, true).apply();
 			}
-			AppsListFragment fragment = AppsListFragment.newInstance(uri);
-			getSupportFragmentManager().beginTransaction()
-					.replace(R.id.container, fragment).commit();
+			checkAndCreateDirs();
+			launchMultiGame();
 		}
-		preferences = PreferenceManager.getDefaultSharedPreferences(this);
-		if (!preferences.contains(PREF_TOOLBAR)) {
-			boolean enable = !ViewConfiguration.get(this).hasPermanentMenuKey();
-			preferences.edit().putBoolean(PREF_TOOLBAR, enable).apply();
-		}
-		boolean warningShown = preferences.getBoolean(PREF_STORAGE_WARNING_SHOWN, false);
-		if (!FileUtils.isExternalStorageLegacy() && !warningShown) {
-			showScopedStorageDialog();
-			preferences.edit().putBoolean(PREF_STORAGE_WARNING_SHOWN, true).apply();
-		}
-		setVolumeControlStream(AudioManager.STREAM_MUSIC);
+	}
+
+	private void launchMultiGame() {
+		if (multiGameLaunched || isFinishing()) return;
+		multiGameLaunched = true;
+		startActivity(new Intent(this, MultiGameActivity.class));
+		finish();
 	}
 
 	private void checkAndCreateDirs() {
@@ -128,6 +121,7 @@ public class MainActivity extends BaseActivity {
 	private void onPermissionResult(Map<String, Boolean> status) {
 		if (!status.containsValue(false)) {
 			checkAndCreateDirs();
+			launchMultiGame();
 		} else if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
 			new AlertDialog.Builder(this)
 					.setTitle(android.R.string.dialog_alert_title)
