@@ -64,6 +64,10 @@ public final class MultiGameActivity extends AppCompatActivity {
         picker = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
             if (uri == null || pendingSlot < 0) return;
             int slot = pendingSlot;
+            if (isSlotRunning(slot)) {
+                Toast.makeText(this, "Dừng game trước khi chọn JAR mới.", Toast.LENGTH_SHORT).show();
+                return;
+            }
             try {
                 getContentResolver().takePersistableUriPermission(uri,
                         Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -133,6 +137,10 @@ public final class MultiGameActivity extends AppCompatActivity {
             selectButtons[i].setTextSize(10);
             selectButtons[i].setMinHeight(dp(38));
             selectButtons[i].setOnClickListener(v -> {
+                if (isSlotRunning(slot)) {
+                    Toast.makeText(this, "Dừng game trước khi chọn JAR mới.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 pendingSlot = slot;
                 picker.launch(new String[]{"application/java-archive", "application/octet-stream", "*/*"});
             });
@@ -232,6 +240,11 @@ public final class MultiGameActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    private boolean isSlotRunning(int slot) {
+        return grid != null && (grid.getSlot(slot).hasOwner()
+                || MultiGameSessionLauncher.hasSessionOrLaunching(grid.getSlot(slot)));
+    }
+
     private boolean isSlotConverted(int slot) {
         String path = getSharedPreferences(PREFS, MODE_PRIVATE).getString("runtime_slot" + slot, null);
         return path != null && hasRuntimePackage(new File(path));
@@ -271,7 +284,7 @@ public final class MultiGameActivity extends AppCompatActivity {
     }
 
     private void setSlotBusy(int slot, boolean busy) {
-        selectButtons[slot].setEnabled(!busy);
+        selectButtons[slot].setEnabled(!busy && !isSlotRunning(slot));
         launchButtons[slot].setEnabled(!busy);
         // Configuration button is the second child in the slot control strip.
         grid.getSlot(slot).setControlsEnabled(!busy);
@@ -436,6 +449,7 @@ public final class MultiGameActivity extends AppCompatActivity {
             return;
         }
         try {
+            selectButtons[slot].setEnabled(false);
             File configDir = new File(Config.getConfigsDir(), appDirectory.getName());
             if (!configDir.isDirectory() && !configDir.mkdirs()) {
                 throw new IOException("Cannot create game configuration directory");
@@ -464,6 +478,7 @@ public final class MultiGameActivity extends AppCompatActivity {
             launchButtons[slot].setEnabled(true);
             Toast.makeText(this, "Starting " + midletName + " in slot " + (slot + 1), Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
+            selectButtons[slot].setEnabled(true);
             launchButtons[slot].setText("▶");
             slotStatus[slot].setText("Grid launch failed: " + e.getMessage());
             Toast.makeText(this, "Cannot launch slot " + (slot + 1) + ": " + e.getMessage(), Toast.LENGTH_LONG).show();
@@ -473,6 +488,7 @@ public final class MultiGameActivity extends AppCompatActivity {
     void onSlotRuntimeStarted(int slot, MIDlet midlet) {
         if (isFinishing() || isDestroyed()) return;
         slotStatus[slot].setText("Running in grid: " + midlet.getClass().getSimpleName());
+        selectButtons[slot].setEnabled(false);
         launchButtons[slot].setText("■");
         launchButtons[slot].setEnabled(true);
         configButtons[slot].setEnabled(false);
@@ -480,7 +496,8 @@ public final class MultiGameActivity extends AppCompatActivity {
 
     void onSlotRuntimeStopped(int slot) {
         if (isFinishing() || isDestroyed()) return;
-        slotStatus[slot].setText("Stopped");
+        slotStatus[slot].setText(selectedNames[slot] == null ? "Đã dừng" : selectedNames[slot]);
+        selectButtons[slot].setEnabled(true);
         launchButtons[slot].setText("▶");
         launchButtons[slot].setEnabled(true);
         configButtons[slot].setEnabled(isSlotConverted(slot));
@@ -491,6 +508,7 @@ public final class MultiGameActivity extends AppCompatActivity {
         String message = error == null || error.getMessage() == null
                 ? "MIDlet initialization failed" : error.getMessage();
         slotStatus[slot].setText("Launch failed: " + message);
+        selectButtons[slot].setEnabled(true);
         launchButtons[slot].setText("▶");
         launchButtons[slot].setEnabled(true);
         configButtons[slot].setEnabled(isSlotConverted(slot));
