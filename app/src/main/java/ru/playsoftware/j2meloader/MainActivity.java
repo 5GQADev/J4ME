@@ -40,7 +40,6 @@ import com.nononsenseapps.filepicker.Utils;
 import java.io.File;
 import java.util.Map;
 
-import ru.playsoftware.j2meloader.applist.AppListModel;
 import ru.playsoftware.j2meloader.applist.AppsListFragment;
 import ru.playsoftware.j2meloader.base.BaseActivity;
 import ru.playsoftware.j2meloader.config.Config;
@@ -63,7 +62,6 @@ public class MainActivity extends BaseActivity {
 			this::onPickDirResult);
 
 	private SharedPreferences preferences;
-	private AppListModel appListModel;
 
 	private boolean multiGameLaunched;
 
@@ -97,7 +95,6 @@ public class MainActivity extends BaseActivity {
 		File dir = new File(emulatorDir);
 		if (dir.isDirectory() && dir.canWrite()) {
 			FileUtils.initWorkDir(dir);
-			appListModel.getAppRepository().onWorkDirReady();
 			return;
 		}
 		if (dir.exists() || dir.getParentFile() == null || !dir.getParentFile().isDirectory()
