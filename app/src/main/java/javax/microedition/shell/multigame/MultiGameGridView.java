@@ -131,6 +131,8 @@ public final class MultiGameGridView extends FrameLayout {
         private final FrameLayout content;
         private final OverlayView overlay;
         private final TextView header;
+        private LinearLayout controlBar;
+        private View[] slotControls;
         private MIDlet owner;
         private Displayable current;
         private boolean isMaximized;
@@ -139,17 +141,17 @@ public final class MultiGameGridView extends FrameLayout {
         private SlotHost(Context context, int slot) {
             super(context);
             this.slot = slot;
-            setBackgroundColor(Color.rgb(24, 24, 24));
+            setBackgroundColor(Color.rgb(248, 250, 252));
             content = new FrameLayout(context);
             addView(content, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
             overlay = new OverlayView(context, null);
             addView(overlay, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
             header = new TextView(context);
-            header.setTextColor(Color.WHITE);
+            header.setTextColor(Color.rgb(15, 23, 42));
             header.setTextSize(12);
             header.setGravity(Gravity.CENTER_VERTICAL);
             header.setPadding(8, 4, 8, 4);
-            header.setBackgroundColor(0x99000000);
+            header.setBackgroundColor(0xE6FFFFFF);
             LayoutParams hp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.TOP);
             addView(header, hp);
             updateHeader();
@@ -192,6 +194,43 @@ public final class MultiGameGridView extends FrameLayout {
             current = null;
             content.removeAllViews();
             updateHeader();
+        }
+
+        /** Add the compact per-slot actions above the bottom edge of the cell. */
+        public void addControlBar(View chooseJar, View configure, View launch, View status) {
+            if (controlBar != null) removeView(controlBar);
+            controlBar = new LinearLayout(getContext());
+            controlBar.setOrientation(LinearLayout.VERTICAL);
+            controlBar.setPadding(2, 2, 2, 2);
+            controlBar.setBackgroundColor(0xF2FFFFFF);
+            LinearLayout actions = new LinearLayout(getContext());
+            actions.setOrientation(LinearLayout.HORIZONTAL);
+            actions.setGravity(Gravity.CENTER);
+            View[] buttons = {launch, configure, chooseJar};
+            for (View button : buttons) {
+                LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(0, dp(34), 1f);
+                bp.setMargins(1, 0, 1, 0);
+                actions.addView(button, bp);
+            }
+            controlBar.addView(actions, new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+            if (status instanceof TextView) {
+                TextView text = (TextView) status;
+                text.setMaxLines(1);
+                text.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                text.setPadding(3, 1, 3, 1);
+                controlBar.addView(text, new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, dp(16)));
+            }
+            LayoutParams cp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
+            addView(controlBar, cp);
+            slotControls = buttons;
+        }
+
+        public void setControlsEnabled(boolean enabled) {
+            if (slotControls != null) for (View control : slotControls) control.setEnabled(enabled);
+        }
+
+        private int dp(int value) {
+            return Math.round(value * getResources().getDisplayMetrics().density);
         }
 
         public OverlayView getOverlayView() { return overlay; }
