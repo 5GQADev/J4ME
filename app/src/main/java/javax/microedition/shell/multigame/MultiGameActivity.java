@@ -49,6 +49,11 @@ public final class MultiGameActivity extends AppCompatActivity {
     private final Button[] prepareButtons = new Button[4];
     private final Button[] convertButtons = new Button[4];
     private final Button[] launchButtons = new Button[4];
+    private final Button[] configButtons = new Button[4];
+    private final Button[] maximizeButtons = new Button[4];
+    private LinearLayout rootLayout;
+    private TextView toolbarTitle;
+    private TextView hintView;
     private final TextView[] slotStatus = new TextView[4];
     private final ExecutorService importerExecutor = Executors.newFixedThreadPool(2);
     private ActivityResultLauncher<String[]> picker;
@@ -84,23 +89,20 @@ public final class MultiGameActivity extends AppCompatActivity {
             prepareSlot(slot);
         });
 
-        final int surface = android.graphics.Color.rgb(245, 247, 250);
-        final int card = android.graphics.Color.rgb(226, 232, 240);
-        final int accent = android.graphics.Color.rgb(25, 118, 210);
         final int muted = android.graphics.Color.rgb(71, 85, 105);
 
         LinearLayout root = new LinearLayout(this);
+        rootLayout = root;
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(10), dp(6), dp(10), dp(8));
-        root.setBackgroundColor(surface);
 
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = new TextView(this);
+        toolbarTitle = title;
         title.setText("Multi-game");
         title.setTextSize(22);
         title.setTypeface(null, android.graphics.Typeface.BOLD);
-        title.setTextColor(android.graphics.Color.rgb(15, 23, 42));
         title.setPadding(dp(4), dp(8), dp(4), dp(8));
         toolbar.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         Button more = new Button(this);
@@ -114,14 +116,13 @@ public final class MultiGameActivity extends AppCompatActivity {
         root.addView(toolbar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         TextView hint = new TextView(this);
-        hint.setText("4 game · Chạm tiêu đề ô để phóng to/khôi phục");
+        hintView = hint;
+        hint.setText("4 game · Dùng nút ⛶ trên mỗi ô để phóng to/thu nhỏ");
         hint.setTextSize(12);
-        hint.setTextColor(muted);
         hint.setPadding(dp(4), 0, dp(4), dp(6));
         root.addView(hint, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         grid = new MultiGameGridView(this);
-        grid.setBackgroundColor(android.graphics.Color.rgb(203, 213, 225));
         root.addView(grid, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         for (int i = 0; i < 4; i++) {
@@ -151,19 +152,32 @@ public final class MultiGameActivity extends AppCompatActivity {
                 } else launchRuntimeInGrid(slot);
             });
             Button config = new Button(this);
+            configButtons[i] = config;
             config.setAllCaps(false);
             config.setText("⚙");
             config.setTextSize(10);
             config.setMinHeight(dp(38));
+            config.setEnabled(false);
             config.setOnClickListener(v -> showSlotConfig(slot));
+            maximizeButtons[i] = new Button(this);
+            maximizeButtons[i].setAllCaps(false);
+            maximizeButtons[i].setText("⛶");
+            maximizeButtons[i].setTextSize(10);
+            maximizeButtons[i].setMinHeight(dp(38));
+            maximizeButtons[i].setContentDescription("Phóng to/thu nhỏ ô " + (slot + 1));
+            maximizeButtons[i].setOnClickListener(v -> {
+                if (grid.getMaximizedSlot() == slot) grid.restoreGrid(); else grid.maximize(slot);
+                updateMaximizeButtonLabels();
+            });
             slotStatus[i] = new TextView(this);
             slotStatus[i].setText("Chưa có game");
             slotStatus[i].setTextSize(10);
             slotStatus[i].setTextColor(muted);
-            grid.getSlot(i).addControlBar(selectButtons[i], config, launchButtons[i], slotStatus[i]);
+            grid.getSlot(i).addControlBar(selectButtons[i], config, launchButtons[i], maximizeButtons[i], slotStatus[i]);
         }
 
         setContentView(root);
+        applyThemeColors();
         restoreSelections();
     }
 
@@ -173,8 +187,7 @@ public final class MultiGameActivity extends AppCompatActivity {
                 .setChecked(androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
                         .getBoolean(ru.playsoftware.j2meloader.util.Constants.PREF_KEEP_SCREEN, false));
         menu.getMenu().add(0, 2, 1, "Cài đặt ứng dụng");
-        menu.getMenu().add(0, 3, 2, "Cấu hình giả lập");
-        menu.getMenu().add(0, 4, 3, "Hồ sơ cấu hình");
+        menu.getMenu().add(0, 4, 2, "Hồ sơ cấu hình");
         menu.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == 1) {
                 boolean enabled = !androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
@@ -185,9 +198,6 @@ public final class MultiGameActivity extends AppCompatActivity {
                 return true;
             } else if (item.getItemId() == 2) {
                 startActivity(new Intent(this, ru.playsoftware.j2meloader.settings.SettingsActivity.class));
-                return true;
-            } else if (item.getItemId() == 3) {
-                startActivity(new Intent(this, ru.playsoftware.j2meloader.config.ConfigActivity.class));
                 return true;
             } else if (item.getItemId() == 4) {
                 startActivity(new Intent(this, ru.playsoftware.j2meloader.config.ProfilesActivity.class));
@@ -206,18 +216,51 @@ public final class MultiGameActivity extends AppCompatActivity {
     }
 
     private void showSlotConfig(int slot) {
-        String[] sizes = {"320 × 240", "240 × 320", "640 × 480", "480 × 640", "Tự động"};
+        if (!isSlotConverted(slot) || grid.getSlot(slot).hasOwner()
+                || MultiGameSessionLauncher.hasSessionOrLaunching(grid.getSlot(slot))) {
+            Toast.makeText(this, "Cấu hình chỉ dùng được khi game đã convert và chưa chạy.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        int current = prefs.getInt("slot_size" + slot, 4);
-        new AlertDialog.Builder(this).setTitle("Cấu hình · Slot " + (slot + 1))
-                .setSingleChoiceItems(sizes, current, (dialog, which) -> {
-                    prefs.edit().putInt("slot_size" + slot, which).apply();
-                    dialog.dismiss();
-                    new AlertDialog.Builder(this).setTitle("Phím điều khiển · Slot " + (slot + 1))
-                            .setMessage("Game nhận phím từ vùng cảm ứng/phím ảo của chính nó. Cấu hình kích thước đã lưu riêng cho slot. Tùy chỉnh ánh xạ phím chi tiết có thể thực hiện trong Key Mapper của ứng dụng.")
-                            .setPositiveButton("Mở Key Mapper", (d, w) -> startActivity(new Intent(this, ru.playsoftware.j2meloader.settings.KeyMapperActivity.class)))
-                            .setNegativeButton(android.R.string.cancel, null).show();
-                }).setNegativeButton(android.R.string.cancel, null).show();
+        String runtimePath = prefs.getString("runtime_slot" + slot, null);
+        if (runtimePath == null) return;
+        File appDirectory = new File(runtimePath);
+        Intent intent = new Intent(ru.playsoftware.j2meloader.util.Constants.ACTION_EDIT,
+                Uri.parse(appDirectory.getAbsolutePath()), this, ru.playsoftware.j2meloader.config.ConfigActivity.class);
+        intent.putExtra(ru.playsoftware.j2meloader.util.Constants.KEY_MIDLET_NAME,
+                prefs.getString("runtime_midlet" + slot, selectedNames[slot]));
+        startActivity(intent);
+    }
+
+    private boolean isSlotConverted(int slot) {
+        String path = getSharedPreferences(PREFS, MODE_PRIVATE).getString("runtime_slot" + slot, null);
+        return path != null && hasRuntimePackage(new File(path));
+    }
+
+    private void applyThemeColors() {
+        boolean dark = (getResources().getConfiguration().uiMode &
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        int surface = dark ? android.graphics.Color.rgb(24, 26, 31) : android.graphics.Color.rgb(245, 247, 250);
+        int card = dark ? android.graphics.Color.rgb(42, 45, 52) : android.graphics.Color.rgb(226, 232, 240);
+        int foreground = dark ? android.graphics.Color.rgb(238, 240, 244) : android.graphics.Color.rgb(15, 23, 42);
+        int muted = dark ? android.graphics.Color.rgb(180, 187, 199) : android.graphics.Color.rgb(71, 85, 105);
+        rootLayout.setBackgroundColor(surface);
+        toolbarTitle.setTextColor(foreground);
+        hintView.setTextColor(muted);
+        grid.setBackgroundColor(dark ? android.graphics.Color.rgb(18, 20, 24) : android.graphics.Color.rgb(203, 213, 225));
+        grid.setSlotColors(card, foreground, dark);
+        for (int i = 0; i < 4; i++) {
+            slotStatus[i].setTextColor(dark ? android.graphics.Color.rgb(190, 198, 210) : android.graphics.Color.rgb(71, 85, 105));
+            selectButtons[i].setTextColor(foreground);
+            configButtons[i].setTextColor(foreground);
+            launchButtons[i].setTextColor(foreground);
+            maximizeButtons[i].setTextColor(foreground);
+        }
+    }
+
+    private void updateMaximizeButtonLabels() {
+        for (int i = 0; i < 4; i++) maximizeButtons[i].setText(grid.getMaximizedSlot() == i ? "⤢" : "⛶");
     }
 
     private LinearLayout.LayoutParams controlButtonParams() {
@@ -232,6 +275,9 @@ public final class MultiGameActivity extends AppCompatActivity {
         launchButtons[slot].setEnabled(!busy);
         // Configuration button is the second child in the slot control strip.
         grid.getSlot(slot).setControlsEnabled(!busy);
+        configButtons[slot].setEnabled(!busy && isSlotConverted(slot)
+                && !grid.getSlot(slot).hasOwner()
+                && !MultiGameSessionLauncher.hasSessionOrLaunching(grid.getSlot(slot)));
     }
 
     private void restoreSelections() {
@@ -260,6 +306,7 @@ public final class MultiGameActivity extends AppCompatActivity {
             if (runtimePath != null && hasRuntimePackage(new File(runtimePath))) {
                 slotStatus[i].setText("Runtime converted: " + (midlet == null ? selectedNames[i] : midlet));
                 launchButtons[i].setEnabled(true);
+                configButtons[i].setEnabled(!grid.getSlot(i).hasOwner());
             }
         }
     }
@@ -360,6 +407,7 @@ public final class MultiGameActivity extends AppCompatActivity {
                     setSlotBusy(slot, false);
                     slotStatus[slot].setText("Sẵn sàng: " + runtime.name);
                     launchButtons[slot].setEnabled(true);
+                    configButtons[slot].setEnabled(true);
                     Toast.makeText(this, "Converted to J2ME-Loader runtime format for slot " + (slot + 1),
                             Toast.LENGTH_LONG).show();
                 });
@@ -427,6 +475,7 @@ public final class MultiGameActivity extends AppCompatActivity {
         slotStatus[slot].setText("Running in grid: " + midlet.getClass().getSimpleName());
         launchButtons[slot].setText("■");
         launchButtons[slot].setEnabled(true);
+        configButtons[slot].setEnabled(false);
     }
 
     void onSlotRuntimeStopped(int slot) {
@@ -434,6 +483,7 @@ public final class MultiGameActivity extends AppCompatActivity {
         slotStatus[slot].setText("Stopped");
         launchButtons[slot].setText("▶");
         launchButtons[slot].setEnabled(true);
+        configButtons[slot].setEnabled(isSlotConverted(slot));
     }
 
     void onSlotRuntimeFailed(int slot, Throwable error) {
@@ -443,6 +493,7 @@ public final class MultiGameActivity extends AppCompatActivity {
         slotStatus[slot].setText("Launch failed: " + message);
         launchButtons[slot].setText("▶");
         launchButtons[slot].setEnabled(true);
+        configButtons[slot].setEnabled(isSlotConverted(slot));
         Toast.makeText(this, "Slot " + (slot + 1) + " failed: " + message, Toast.LENGTH_LONG).show();
     }
 
@@ -495,6 +546,8 @@ public final class MultiGameActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         applyKeepScreenOn();
+        applyThemeColors();
+        updateMaximizeButtonLabels();
         // Each session checks its own registered Context before resuming.
         if (grid != null) {
             for (int i = 0; i < MultiGameGridView.SLOT_COUNT; i++) {
