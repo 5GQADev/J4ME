@@ -162,7 +162,7 @@ public final class MultiGameActivity extends AppCompatActivity {
             Button config = new Button(this);
             configButtons[i] = config;
             config.setAllCaps(false);
-            config.setText("⚙");
+            config.setText("SET");
             config.setTextSize(10);
             config.setMinHeight(dp(38));
             config.setEnabled(false);
@@ -175,7 +175,6 @@ public final class MultiGameActivity extends AppCompatActivity {
             maximizeButtons[i].setContentDescription("Phóng to/thu nhỏ ô " + (slot + 1));
             maximizeButtons[i].setOnClickListener(v -> {
                 if (grid.getMaximizedSlot() == slot) grid.restoreGrid(); else grid.maximize(slot);
-                updateMaximizeButtonLabels();
             });
             slotStatus[i] = new TextView(this);
             slotStatus[i].setText("Chưa có game");
@@ -270,10 +269,6 @@ public final class MultiGameActivity extends AppCompatActivity {
             launchButtons[i].setTextColor(foreground);
             maximizeButtons[i].setTextColor(foreground);
         }
-    }
-
-    private void updateMaximizeButtonLabels() {
-        for (int i = 0; i < 4; i++) maximizeButtons[i].setText(grid.getMaximizedSlot() == i ? "⤢" : "⛶");
     }
 
     private LinearLayout.LayoutParams controlButtonParams() {
@@ -565,7 +560,6 @@ public final class MultiGameActivity extends AppCompatActivity {
         super.onResume();
         applyKeepScreenOn();
         applyThemeColors();
-        updateMaximizeButtonLabels();
         // Each session checks its own registered Context before resuming.
         if (grid != null) {
             for (int i = 0; i < MultiGameGridView.SLOT_COUNT; i++) {
