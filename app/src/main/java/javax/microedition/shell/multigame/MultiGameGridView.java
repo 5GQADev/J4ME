@@ -40,6 +40,8 @@ public final class MultiGameGridView extends FrameLayout {
     private final MultiGameRenderController renderController = new MultiGameRenderController();
     private final FrameLayout maximizedContainer;
     private int maximizedSlot = -1;
+    // Avoid overlapping SurfaceView/GLSurfaceView reparent operations on rapid taps.
+    private boolean layoutTransitionPending;
 
     public MultiGameGridView(Context context) {
         super(context);
@@ -97,32 +99,79 @@ public final class MultiGameGridView extends FrameLayout {
 
     public void maximize(int slot) {
         checkSlot(slot);
-        if (maximizedSlot == slot) return;
-        restoreGrid();
-        SlotHost host = slots[slot];
-        ViewGroup oldParent = (ViewGroup) host.getParent();
-        if (oldParent != null) oldParent.removeView(host);
-        maximizedContainer.addView(host, new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+        if (layoutTransitionPending || maximizedSlot == slot) return;
+        layoutTransitionPending = true;
+
+        final int previousSlot = maximizedSlot;
+        final SlotHost target = slots[slot];
+        final SlotHost previous = previousSlot >= 0 ? slots[previousSlot] : null;
+
+        // Surface-backed game views (notably GLSurfaceView) are fragile when removed and
+        // re-added during the same traversal. Detach first, then attach on the next UI turn.
+        if (previous != null) detachFromParent(previous);
+        detachFromParent(target);
+        maximizedContainer.setVisibility(GONE);
         grid.setVisibility(GONE);
-        maximizedContainer.setVisibility(VISIBLE);
-        maximizedSlot = slot;
-        renderController.maximize(slot);
-        host.setMaximized(true);
+
+        post(() -> {
+            try {
+                if (previous != null && previous != target) {
+                    addToGrid(previousSlot, previous);
+                    previous.setMaximized(false);
+                }
+                detachFromParent(target);
+                maximizedContainer.removeAllViews();
+                maximizedContainer.addView(target,
+                        new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+                maximizedSlot = slot;
+                renderController.maximize(slot);
+                target.setMaximized(true);
+                maximizedContainer.setVisibility(VISIBLE);
+            } finally {
+                layoutTransitionPending = false;
+                requestLayout();
+                invalidate();
+            }
+        });
     }
 
     public void restoreGrid() {
-        if (maximizedSlot < 0) return;
-        int slot = maximizedSlot;
-        SlotHost host = slots[slot];
-        if (host.getParent() instanceof ViewGroup) ((ViewGroup) host.getParent()).removeView(host);
+        if (layoutTransitionPending || maximizedSlot < 0) return;
+        layoutTransitionPending = true;
+        final int slot = maximizedSlot;
+        final SlotHost host = slots[slot];
+
+        detachFromParent(host);
+        maximizedContainer.setVisibility(GONE);
+        post(() -> {
+            try {
+                detachFromParent(host);
+                addToGrid(slot, host);
+                host.setMaximized(false);
+                maximizedContainer.removeAllViews();
+                maximizedSlot = -1;
+                renderController.restoreGrid();
+                grid.setVisibility(VISIBLE);
+            } finally {
+                layoutTransitionPending = false;
+                requestLayout();
+                invalidate();
+            }
+        });
+    }
+
+    private static void detachFromParent(View view) {
+        if (view.getParent() instanceof ViewGroup) {
+            ((ViewGroup) view.getParent()).removeView(view);
+        }
+    }
+
+    private void addToGrid(int slot, SlotHost host) {
+        detachFromParent(host);
         LinearLayout.LayoutParams cell = new LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f);
         cell.setMargins(1, 1, 1, 1);
-        rows[slot / 2].addView(host, slot % 2, cell);
-        host.setMaximized(false);
-        renderController.restoreGrid();
-        maximizedContainer.setVisibility(GONE);
-        grid.setVisibility(VISIBLE);
-        maximizedSlot = -1;
+        int index = Math.min(slot % 2, rows[slot / 2].getChildCount());
+        rows[slot / 2].addView(host, index, cell);
     }
 
     private static void checkSlot(int slot) {
